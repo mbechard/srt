@@ -236,10 +236,10 @@ string srt::CUDTUnited::CONID(SRTSOCKET sock)
 int srt::CUDTUnited::startup()
 {
     ScopedLock gcinit(m_InitLock);
-    if (m_bGCStatus)
+    if (m_iInstanceCount++ > 0)
         return 1;
 
-    if (m_iInstanceCount++ > 0)
+    if (m_bGCStatus)
         return 1;
 
         // Global initialization code
