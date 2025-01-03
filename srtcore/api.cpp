@@ -180,6 +180,7 @@ srt::CUDTUnited::CUDTUnited()
     , m_InitLock()
     , m_iInstanceCount(0)
     , m_bGCStatus(false)
+    , m_bImplicitStartup(false)
     , m_ClosedSockets()
 {
     // Socket ID MUST start from a random value
@@ -198,12 +199,15 @@ srt::CUDTUnited::CUDTUnited()
 
 srt::CUDTUnited::~CUDTUnited()
 {
-    // Call it if it wasn't called already.
-    // This will happen at the end of main() of the application,
-    // when the user didn't call srt_cleanup().
-    if (m_bGCStatus)
     {
-        cleanup();
+        // If an implicit startup was called, then call a matching cleanup
+        // This will happen at the end of main() of the application,
+        // when the user didn't call srt_cleanup() before using the library.
+        ScopedLock gcinit(m_InitLock);
+        if (m_bImplicitStartup)
+        {
+            cleanup();
+        }
     }
 
     releaseMutex(m_GlobControlLock);
@@ -233,13 +237,22 @@ string srt::CUDTUnited::CONID(SRTSOCKET sock)
     return os.str();
 }
 
-int srt::CUDTUnited::startup()
+void srt::CUDTUnited::implicitStartup()
 {
     ScopedLock gcinit(m_InitLock);
     if (m_bGCStatus)
+        return;
+    m_bImplicitStartup = true;
+    startup();
+}
+
+int srt::CUDTUnited::startup()
+{
+    ScopedLock gcinit(m_InitLock);
+    if (m_iInstanceCount++ > 0)
         return 1;
 
-    if (m_iInstanceCount++ > 0)
+    if (m_bGCStatus)
         return 1;
 
         // Global initialization code
@@ -299,6 +312,7 @@ int srt::CUDTUnited::cleanup()
     m_GCThread.join();
 
     m_bGCStatus = false;
+    m_bImplicitStartup = false;
 
     // Global destruction code
 #ifdef _WIN32
@@ -3469,7 +3483,7 @@ int srt::CUDT::cleanup()
 
 SRTSOCKET srt::CUDT::socket()
 {
-    uglobal().startup();
+    uglobal().implicitStartup();
 
     try
     {
@@ -3519,7 +3533,7 @@ srt::CUDTGroup& srt::CUDT::newGroup(const int type)
 SRTSOCKET srt::CUDT::createGroup(SRT_GROUP_TYPE gt)
 {
     // Doing the same lazy-startup as with srt_create_socket()
-    uglobal().startup();
+    uglobal().implicitStartup();
 
     try
     {

@@ -428,6 +428,7 @@ private:
     CUDTSocket* locateSocket_LOCKED(SRTSOCKET u);
     CUDTSocket* locatePeer(const sockaddr_any& peer, const SRTSOCKET id, int32_t isn);
 
+    void implicitStartup();
 #if ENABLE_BONDING
     CUDTGroup* locateAcquireGroup(SRTSOCKET u, ErrorHandling erh = ERH_RETURN);
     CUDTGroup* acquireSocketsGroup(CUDTSocket* s);
@@ -542,6 +543,8 @@ private:
     int         m_iInstanceCount; // number of startup() called by application
     SRT_ATTR_GUARDED_BY(m_InitLock)
     bool        m_bGCStatus;      // if the GC thread is working (true)
+    SRT_ATTR_GUARDED_BY(m_InitLock)
+    bool        m_bImplicitStartup; // if startup was implicitly called
 
     SRT_ATTR_GUARDED_BY(m_InitLock)
     sync::CThread m_GCThread;
